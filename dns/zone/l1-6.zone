@@ -1,0 +1,22 @@
+; Zone file for l1-6.tonyephec.cloud
+$TTL 86400      ; 1 day
+@       IN      SOA     ns.l1-6.tonyephec.cloud. admin.l1-6.tonyephec.cloud. (
+                        2025022810      ; serial (YYYYMMDDNN)
+                        21600           ; refresh (6 hours)
+                        3600            ; retry (1 hour)
+                        604800          ; expire (1 week)
+                        86400           ; minimum TTL (1 day)
+                        )
+; Serveurs de noms
+@       IN      NS      ns.l1-6.tonyephec.cloud.
+
+; Enregistrements A
+@       IN      A       51.75.141.167    ; Adresse IP du domaine racine
+ns      IN      A       51.75.141.167    ; Serveur DNS
+www     IN      A       51.75.141.167    ; Site web
+blog    IN      CNAME   www              ; Blog
+swarm   IN      A       51.75.141.167
+cdn     IN      CNAME   cl-glf5c1544e.gcdn.co.
+
+_acme-challenge   IN  TXT  "cyo4Bbxz0muHs2WE01ew5LUKge4fbcg8j53MMBRgn_I"
+_acme-challenge   IN  TXT  "_9W1oXMtidngQHeplNMfv50mcC9l9FxHqplJcibfU1o"

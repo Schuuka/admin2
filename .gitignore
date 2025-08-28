@@ -1,0 +1,59 @@
+# --- Secrets & clés ---
+**/*.pem
+**/*.key
+**/*.crt
+**/.env
+**/.env.*
+**/secrets*
+**/*_secret.*
+**/*credentials*
+**/*password*
+**/*.p12
+**/*.kubeconfig
+
+# Certbot / Let’s Encrypt
+etc/letsencrypt/
+**/letsencrypt/
+**/acme.json
+
+# SSH keys
+**/.ssh/*
+!**/.ssh/known_hosts
+
+# Docker : volumes, caches, builds, override locaux
+**/node_modules/
+**/vendor/
+**/__pycache__/
+**/*.pyc
+**/.pytest_cache/
+**/.mypy_cache/
+
+**/docker-data/
+**/data/
+**/volumes/
+**/tmp/
+**/.DS_Store
+
+# Logs / traces / captures
+**/*.log
+**/logs/
+**/*.pcap
+**/*.pcapng
+
+# Archives & binaires lourds
+**/*.zip
+**/*.tar
+**/*.tar.gz
+**/*.tgz
+**/*.7z
+**/*.iso
+
+# Overrides compose locaux
+docker-compose.override.yml
+compose.override.yml
+
+# Fichiers spécifiques
+dns/**/K*.private
+dns/**/K*.key
+swarm/**/join-token*
+swarm/**/.token

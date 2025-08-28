@@ -1,0 +1,2 @@
+l1-6    IN    NS    ns.l1-6.tonyephec.cloud.
+ns.l1-6 IN    A     51.75.141.167
