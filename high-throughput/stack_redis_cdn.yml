@@ -1,5 +1,9 @@
 version: "3.9"
 
+secrets:
+  db_app_password:
+    external: true
+
 services:
   db:
     image: ttranthi/woody_database:latest
@@ -13,18 +17,33 @@ services:
       placement:
         constraints:
           - node.role == manager
+          - node.labels.db == true
       restart_policy:
         condition: on-failure
+    networks: [data]
 
   redis:
     image: redis:alpine
     deploy:
       replicas: 1
+      placement:
+        constraints:
+          - node.labels.db == true
       restart_policy:
         condition: on-failure
+    networks: [data]
 
   api:
-    image: ttranthi/woody_api:redis
+    image: ttranthi/woody_api:secure
+    environment:
+      DB_HOST: db
+      DB_USER: woody-app
+      DB_PASS_FILE: /run/secrets/db_app_password
+      DB_NAME: woody
+      REDIS_HOST: redis
+      ALLOWED_ORIGINS: https://www.l1-6.ephec-ti.be
+    secrets:
+      - db_app_password
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/api/ping"]
       interval: 30s
@@ -38,6 +57,7 @@ services:
         delay: 10s
       restart_policy:
         condition: on-failure
+    networks: [web, data]
 
   front:
     image: ttranthi/woody_front:cdn
@@ -48,6 +68,7 @@ services:
         delay: 10s
       restart_policy:
         condition: on-failure
+    networks: [web]
 
   reverse:
     image: ttranthi/woody_rp:latest
@@ -57,13 +78,17 @@ services:
       replicas: 2
       restart_policy:
         condition: on-failure
-    depends_on:
-      - front
-      - api
+    networks: [web]
 
 networks:
-  default:
+  web:
     driver: overlay
+    driver_opts:
+      encrypted: "true"
+  data:
+    driver: overlay
+    driver_opts:
+      encrypted: "true"
 
 volumes:
   db-data:

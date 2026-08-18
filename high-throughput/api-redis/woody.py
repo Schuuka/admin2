@@ -1,11 +1,4 @@
-# Voici les différentes fonctions que l'api de Woody pourrait utiliser
-#
-# Il y a beacoup de "sleep", et de ralentissement qui ont pour but de simuler une grosse charge et/ou
-# pour simuler des requètes qui seraient (dans un cas réel) plus lourde..
-#
-# Ce fichier ne peut pas être modifié (du moins pas pour "fixer" les limitations qu'il introduit ;)
-# ( ce fichier sera, à terme dans une lib externe pour rendre plus clair la séparation)
-
+import os
 
 from werkzeug.serving import run_simple
 from mysql.connector import connect, Error
@@ -14,14 +7,26 @@ from time import sleep
 LONG_WAIT_TIME = 5  # seconds
 SHORT_WAIT_TIME = 5
 
+def _get_secret(name: str, default: str = "") -> str:
+    """Lit <NAME>_FILE (docker secret) en priorité, sinon <NAME>."""
+    path = os.getenv(f"{name}_FILE")
+    if path and os.path.exists(path):
+        with open(path) as f:
+            return f.read().strip()
+    return os.getenv(name, default)
+
+
+DB_HOST = os.getenv("DB_HOST", "db")
+DB_USER = os.getenv("DB_USER", "woody-app")
+DB_PASS = _get_secret("DB_PASS")
+DB_NAME = os.getenv("DB_NAME", "woody")
+DB_PORT = int(os.getenv("DB_PORT", "3306"))
 
 def my_connect():
-    # note, c'est une mauvaise idée de recréer la connection à chaque requète
-    # (c'est surtt pour une question de performance)
-    # Mais ici, ce n'est pas la performance qu'on cherche ;)
 
     try:
-        mydb = connect(host='db', user='root', password='pass', database='woody', port=3306)
+        mydb = connect(host=DB_HOST, user=DB_USER, password=DB_PASS,
+                       database=DB_NAME, port=DB_PORT)
         mycursor = mydb.cursor()
     except Error as e:
         print(e)
@@ -65,24 +70,25 @@ def make_heavy_validation(order):
 
 def add_product(product):
     mydb, mycursor = my_connect()
-    query = f"INSERT INTO woody.product ( name) VALUES ('{product}');"
-
-    mycursor.execute(query)
+    mycursor.execute(
+        "INSERT INTO woody.product (name) VALUES (%s);",
+        (product,),
+    )
     mydb.commit()
     mycursor.close()
     mydb.close()
 
 
 def launch_server(app, host='0.0.0.0', port=5000):
-    # voici ce qui rend le serveur si limité ...
     run_simple(host, port, app, use_reloader=True, threaded=False)
 
 
 def save_order(order_id, status, product):
     mydb, mycursor = my_connect()
-    query = f"INSERT INTO woody.order (order_id, status, product) VALUES ('{order_id}', '{status}', '{product}');"
-
-    mycursor.execute(query)
+    mycursor.execute(
+        "INSERT INTO woody.order (order_id, status, product) VALUES (%s, %s, %s);",
+        (order_id, status, product),
+    )
     mydb.commit()
 
     mycursor.close()
@@ -91,9 +97,10 @@ def save_order(order_id, status, product):
 
 def get_order(order_id):
     mydb, mycursor = my_connect()
-    query = f"SELECT status FROM woody.order WHERE order_id='{order_id}';"
-
-    mycursor.execute(query)
+    mycursor.execute(
+        "SELECT status FROM woody.order WHERE order_id=%s;",
+        (order_id,),
+    )
 
     order_status = mycursor.fetchone()
 

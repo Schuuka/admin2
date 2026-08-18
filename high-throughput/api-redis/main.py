@@ -1,3 +1,4 @@
+import os
 import uuid
 from datetime import datetime
 
@@ -9,9 +10,16 @@ from redis_wrapper import cache_result
 import redis
 
 app = Flask('my_api')
-cors = CORS(app)
 
-redis_client = redis.Redis(host='redis', port=6379, db=0)
+ALLOWED_ORIGINS = [
+    o.strip()
+    for o in os.getenv("ALLOWED_ORIGINS", "https://www.l1-6.ephec-ti.be").split(",")
+    if o.strip()
+]
+cors = CORS(app, origins=ALLOWED_ORIGINS)
+
+REDIS_HOST = os.getenv("REDIS_HOST", "redis")
+redis_client = redis.Redis(host=REDIS_HOST, port=6379, db=0)
 
 @app.get('/api/ping')
 def ping():
@@ -31,9 +39,11 @@ def get_heavy():
 @app.route('/api/products', methods=['GET'])
 def add_product():
     product = request.args.get('product')
+    if not product or len(product) > 200:
+        return "invalid product", 400
     woody.add_product(str(product))
     redis_client.delete('get_last_product:():{}')
-    return str(product) or "none"
+    return str(product)
 
 @app.route('/api/products/<int:product_id>', methods=['GET'])
 def get_product(product_id):
@@ -48,6 +58,8 @@ def get_last_product():
 @app.route('/api/orders/do', methods=['GET'])
 def create_order():
     product = request.args.get('order')
+    if not product or len(product) > 200:
+        return "invalid order", 400
     order_id = str(uuid.uuid4())
     process_order(order_id, product)
     return f"Your process {order_id} has been created with this product : {product}"
@@ -55,6 +67,8 @@ def create_order():
 @app.route('/api/orders/', methods=['GET'])
 def get_order():
     order_id = request.args.get('order_id')
+    if not order_id or len(order_id) > 200:
+        return "invalid order_id", 400
     status = woody.get_order(order_id)
     return f'order "{order_id}": {status}'
 
