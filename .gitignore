@@ -57,3 +57,4 @@ dns/**/K*.private
 dns/**/K*.key
 swarm/**/join-token*
 swarm/**/.token
+*.bak
