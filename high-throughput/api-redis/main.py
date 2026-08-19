@@ -13,7 +13,7 @@ app = Flask('my_api')
 
 ALLOWED_ORIGINS = [
     o.strip()
-    for o in os.getenv("ALLOWED_ORIGINS", "https://www.l1-6.ephec-ti.be").split(",")
+    for o in os.getenv("ALLOWED_ORIGINS", "https://www.l1-6.tonyephec.cloud").split(",")
     if o.strip()
 ]
 cors = CORS(app, origins=ALLOWED_ORIGINS)

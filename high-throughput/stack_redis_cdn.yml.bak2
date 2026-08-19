@@ -71,13 +71,9 @@ services:
     networks: [web]
 
   reverse:
-    image: ttranthi/woody_rp:tls
+    image: ttranthi/woody_rp:latest
     ports:
       - "8080:8080"
-      - "443:8443"
-    volumes:
-      - /etc/letsencrypt:/etc/letsencrypt:ro
-      - /var/www/certbot:/var/www/certbot:ro
     deploy:
       replicas: 2
       restart_policy:
