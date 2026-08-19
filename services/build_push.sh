@@ -1,21 +1,23 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-: "${REGISTRY:=docker.io}"
-: "${NAMESPACE:=ttranthi}"
-: "${VERSION:=v1}"
+NAMESPACE="${NAMESPACE:-ttranthi}"
+VERSION="${VERSION:-tp9}"
 
 build_push () {
   local path="$1" name="$2"
-  docker build -t "$REGISTRY/$NAMESPACE/$name:$VERSION" "$path"
-  docker push "$REGISTRY/$NAMESPACE/$name:$VERSION"
+  echo "==> $name"
+  docker build -t "$NAMESPACE/$name:$VERSION" "$path"
+  docker push "$NAMESPACE/$name:$VERSION"
 }
 
-build_push services/misc-service      woody-misc
-build_push services/product-service   woody-product
-build_push services/order-service     woody-order
-build_push services/reverse-proxy    woody-reverse
-build_push services/front            woody-front
-build_push services/order-worker    woody-order-worker
-# database utilise l'image officielle mariadb -> pas de build ici
-echo "Done. Pushed version: $VERSION"
+cd "$(dirname "$0")"
+
+build_push misc-service    woody9-misc
+build_push product-service woody9-product
+build_push order-service   woody9-order
+build_push order-worker    woody9-order-worker
+build_push reverse-proxy   woody9-reverse
+build_push front           woody9-front
+
+echo "OK - version poussee : $VERSION"

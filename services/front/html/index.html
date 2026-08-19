@@ -1,10 +1,26 @@
-<!DOCTYPE html>
-<html lang="fr"><meta charset="utf-8">
-<title>WoodyToys (Swarm)</title>
-<h1>Bienvenue 🌲</h1>
-<p>Front servi par Nginx. Essayez :</p>
-<ul>
-  <li>/api/misc/heavy?name=test</li>
-  <li>/api/products/last</li>
-  <li>/api/orders/status</li>
-</ul>
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>WoodyToys</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 42rem; margin: 3rem auto; padding: 0 1rem; }
+    code { background: #f4f4f5; padding: .15rem .35rem; border-radius: .2rem; }
+    li { margin: .4rem 0; }
+  </style>
+</head>
+<body>
+  <h1>WoodyToys</h1>
+  <p>Architecture microservices (TP9) &mdash; passerelle API, cache Redis, broker de messages.</p>
+  <h2>Points d'entree</h2>
+  <ul>
+    <li><code>GET /api/misc/heavy?name=test</code> &mdash; traitement lourd, mis en cache 30 s</li>
+    <li><code>GET /api/misc/time</code></li>
+    <li><code>GET /api/products/last</code> &mdash; lecture base, mise en cache 15 s</li>
+    <li><code>GET /api/orders/status</code></li>
+    <li><code>POST /api/orders/do</code> &mdash; corps JSON <code>{"order": "Yoyo"}</code>, traitement asynchrone</li>
+  </ul>
+  <p><small>Les ressources statiques volumineuses sont servies via le CDN
+  (<code>cdn.l1-6.tonyephec.cloud</code>).</small></p>
+</body>
+</html>

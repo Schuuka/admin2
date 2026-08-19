@@ -1,108 +1,195 @@
 version: "3.9"
 
+# =============================================================================
+# WoodyToys — TP9 : microservices, passerelle API, broker de messages,
+# cache Redis et CDN (repris du TP8), avec les correctifs de securite
+# appliques aux phases 1 et 2.
+#
+# Cluster mono-noeud (swarm-tony) : les bind mounts sont sans risque.
+# =============================================================================
+
+secrets:
+  db_root_password:
+    external: true
+  db_app_password:
+    external: true
+  rabbit_password_v2:
+    external: true
+  rabbitmq_conf:
+    external: true
+
 services:
+
+  # ---------------------------------------------------------------- passerelle
   reverse:
-    image: docker.io/ttranthi/woody-reverse:v1
+    image: ttranthi/woody9-reverse:tp9
     ports:
       - "80:8080"
+      - "443:8443"
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /var/www/certbot:/var/www/certbot:ro
     deploy:
       replicas: 2
+      update_config: { parallelism: 1, delay: 10s }
       restart_policy: { condition: on-failure }
     networks: [web]
 
   front:
-    image: docker.io/ttranthi/woody-front:v1
+    image: ttranthi/woody9-front:tp9
     deploy:
       replicas: 2
+      update_config: { parallelism: 1, delay: 10s }
       restart_policy: { condition: on-failure }
     networks: [web]
 
+  # ------------------------------------------------------------ microservices
   misc-service:
-    image: docker.io/ttranthi/woody-misc:v1
+    image: ttranthi/woody9-misc:tp9
+    environment:
+      REDIS_HOST: redis
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://localhost:8080/healthz')\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     deploy:
       replicas: 2
+      update_config: { parallelism: 1, delay: 10s }
       restart_policy: { condition: on-failure }
-    networks: [web]
+    networks: [web, data]          # data : acces au cache Redis
 
   product-service:
-    image: docker.io/ttranthi/woody-product:v1
+    image: ttranthi/woody9-product:tp9
     environment:
       DB_HOST: db
-      DB_USER: root
-      DB_PASS: mypass
+      DB_USER: woody-app
+      DB_PASS_FILE: /run/secrets/db_app_password
       DB_NAME: woodytoys
+      REDIS_HOST: redis
+    secrets:
+      - db_app_password
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://localhost:8081/healthz')\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     deploy:
       replicas: 2
+      update_config: { parallelism: 1, delay: 10s }
       restart_policy: { condition: on-failure }
-    networks: [web, db]
+    networks: [web, data]
 
   order-service:
-    image: docker.io/ttranthi/woody-order:v1
+    image: ttranthi/woody9-order:tp9
     environment:
       RABBIT_HOST: rabbitmq
       RABBIT_USER: woody
-      RABBIT_PASS: woodypass
+      RABBIT_PASS_FILE: /run/secrets/rabbit_password
       QUEUE_NAME: order_processing
+    secrets:
+      - source: rabbit_password_v2
+        target: rabbit_password
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://localhost:8082/healthz')\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     deploy:
       replicas: 2
-      restart_policy:
-        condition: on-failure
-    networks: [web]
+      update_config: { parallelism: 1, delay: 10s }
+      restart_policy: { condition: on-failure }
+    networks: [web, broker]        # broker : publication dans la file
 
   order-worker:
-    image: docker.io/ttranthi/woody-order-worker:v1
+    image: ttranthi/woody9-order-worker:tp9
     environment:
       RABBIT_HOST: rabbitmq
       RABBIT_USER: woody
-      RABBIT_PASS: woodypass
+      RABBIT_PASS_FILE: /run/secrets/rabbit_password
       QUEUE_NAME: order_processing
+    secrets:
+      - source: rabbit_password_v2
+        target: rabbit_password
     deploy:
-      replicas: 1   # scale ici en cas de pics (ex: 5)
-      restart_policy:
-        condition: on-failure
-    networks: [web]
+      replicas: 1                  # scaler ici en cas de pic (ex: 5)
+      restart_policy: { condition: on-failure }
+    networks: [broker]             # aucun acces au reseau web
 
-
+  # ------------------------------------------------------------------ donnees
   db:
     image: mariadb:11.1
     environment:
-      MARIADB_ROOT_PASSWORD: mypass
       MARIADB_DATABASE: woodytoys
+      MARIADB_ROOT_PASSWORD_FILE: /run/secrets/db_root_password
+      MARIADB_USER: woody-app
+      MARIADB_PASSWORD_FILE: /run/secrets/db_app_password
+    secrets:
+      - db_root_password
+      - db_app_password
     volumes:
-      - db-data:/var/lib/mysql
-      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-    deploy:
-      placement:
-        constraints:
-          - node.role == manager
-    networks: [db]
-
-  rabbitmq:
-    image: rabbitmq:3-management
-    volumes:
-      - rabbitmq-data:/var/lib/rabbitmq
-    ports:
-      - "15672:15672"
+      - db9-data:/var/lib/mysql
+      - ./database:/docker-entrypoint-initdb.d:ro
     deploy:
       replicas: 1
       placement:
         constraints:
           - node.role == manager
-      restart_policy:
-        condition: on-failure
+          - node.labels.db == true
+      restart_policy: { condition: on-failure }
+    networks: [data]
+
+  redis:
+    image: redis:alpine
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.db == true
+      restart_policy: { condition: on-failure }
+    networks: [data]
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    secrets:
+      - source: rabbitmq_conf
+        target: /etc/rabbitmq/rabbitmq.conf
+        mode: 0444
+    volumes:
+      - rabbitmq9-data:/var/lib/rabbitmq
+    # Aucun `ports:` — l'interface d'administration (15672) reste interne.
     healthcheck:
-      test: ["CMD", "rabbitmqctl", "status"]
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 30s
       timeout: 10s
       retries: 3
-    start_period: 30s
+      start_period: 40s
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.db == true
+      restart_policy: { condition: on-failure }
+    networks: [broker]
 
+# ---------------------------------------------------------------------------
+# Trois zones. Aucun service de `data` ou `broker` n'est joignable depuis
+# `reverse` : seuls les microservices concernes font le pont.
+# ---------------------------------------------------------------------------
 networks:
   web:
     driver: overlay
-  db:
+    driver_opts: { encrypted: "true" }
+  data:
     driver: overlay
+    driver_opts: { encrypted: "true" }
+  broker:
+    driver: overlay
+    driver_opts: { encrypted: "true" }
 
 volumes:
-  db-data:
-  rabbitmq-data:
+  db9-data:
+  rabbitmq9-data:

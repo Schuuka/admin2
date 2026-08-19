@@ -1,7 +1,19 @@
 FROM python:3.12.3-bookworm
+
 RUN pip install -U pip setuptools wheel
-WORKDIR /app
+
+WORKDIR /project
+
+# Utilisateur non privilegie (le conteneur ne doit pas tourner en root)
+RUN groupadd --system appgroup \
+ && useradd --system --gid appgroup --home-dir /project appuser
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-COPY worker.py .
+
+COPY . .
+RUN chown -R root:appgroup /project && chmod -R g=rX,o= /project
+
+USER appuser
+
 CMD ["python", "worker.py"]
